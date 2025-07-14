@@ -222,6 +222,73 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Today's Schedule</Text>
+          <Link href="/calendar" asChild>
+            <TouchableOpacity>
+              <Text style={styles.seeAllButton}>See All</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+        {true ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="medical-outline" size={24} color="#ccc" />
+            <Text style={styles.emptyStateText}>
+              No Medications Scheduled For Today
+            </Text>
+            <Link href="/medication/add" asChild>
+              <TouchableOpacity style={styles.addMedicationButton}>
+                <Text style={styles.addMedicationButtonText}>
+                  Add Medication
+                </Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        ) : (
+          [].map((medicatons) => {
+            return (
+              <View style={styles.doseCard}>
+                <View
+                  style={[
+                    styles.doseBadge,
+                    //   { backgroundColor: medicatons.color
+
+                    // }
+                  ]}
+                >
+                  <Ionicons name="medical" size={24} color="#ccc" />
+                </View>
+                <View style={styles.doseInfo}>
+                  <View>
+                    <Text style={styles.medicineName}>Name</Text>
+                    <Text style={styles.doseInfo}>Doses</Text>
+                  </View>
+                  <View style={styles.doseTime}>
+                    <Ionicons name="time-outline" size={16} color="#ccc" />
+                    <Text style={styles.timeText}>Time</Text>
+                  </View>
+                </View>
+                {true ? (
+                  <View style={styles.takeDoseButton}>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={24}
+                      color="#4CAF50"
+                    />
+                    <Text style={styles.takeDoseText}>Taken</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.takeDoseButton}>
+                    <Text style={styles.takeDoseText}>Take</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -494,6 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 16,
     marginTop: 10,
+    marginBottom: 20,
   },
   emptyStateText: {
     fontSize: 16,
