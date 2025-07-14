@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Link, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
   Animated,
@@ -16,6 +17,70 @@ const { width } = Dimensions.get("window");
 
 // Create animated circle component
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+const QUICK_ACTIONS = [
+  {
+    icon: "add-circle-outline" as const,
+    label: "Add\nMedication",
+    route: "/medication/add" as const,
+    color: "#2E7D32",
+    gradient: ["#4CAF50", "#2E7D32"] as [string, string],
+  },
+  {
+    icon: "calendar-outline" as const,
+    label: "Calendar\nView",
+    route: "/calender" as const,
+    color: "#1976D2",
+    gradient: ["#2196F3", "#1976D2"] as [string, string],
+  },
+  {
+    icon: "time-outline" as const,
+    label: "History\nLog",
+    route: "/history" as const,
+    color: "#C2185B",
+    gradient: ["#E91E63", "#C2185B"] as [string, string],
+  },
+  {
+    icon: "medical-outline" as const,
+    label: "Refill\nTracker",
+    route: "/refills" as const,
+    color: "#E64A19",
+    gradient: ["#FF5722", "#E64A19"] as [string, string],
+  },
+];
+
+function AnimatedActionCard({
+  children,
+  index,
+}: {
+  children: React.ReactNode;
+  index: number;
+}) {
+  const scale = useRef(new Animated.Value(0.8)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        delay: index * 200,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+        delay: index * 200,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }], opacity }}>
+      {children}
+    </Animated.View>
+  );
+}
 
 interface CircularProgressProps {
   progress: number;
@@ -84,6 +149,8 @@ function CircularProgress({
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} style={styles.container}>
       <LinearGradient colors={["#1a8e2d", "#146922"]} style={styles.header}>
@@ -105,6 +172,56 @@ export default function HomeScreen() {
           <CircularProgress progress={0.2} totalDoses={10} completedDoses={2} />
         </View>
       </LinearGradient>
+
+      <View style={styles.content}>
+        <View style={styles.quickActionsContainer}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          {/* <View style={styles.quickActionsGrid}>
+              {
+                QUICK_ACTIONS.map((action) => (
+                  <Link href={action.route} key={action.label} asChild>
+                    <TouchableOpacity style={styles.actionButton}>
+                      <LinearGradient colors={action.gradient}style={styles.actionGradient}>
+                        <View style={styles.actionContent}>
+                          <View style={styles.actionIcon}>
+                            <Ionicons name={action.icon} size={24} color="white"/>
+                          </View>
+                          <Text style={styles.actionLabel}>{action.label}</Text>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                  </Link>
+                ))
+              }
+          </View> */}
+          <View style={styles.quickActionsGrid}>
+            {QUICK_ACTIONS.map((action, idx) => (
+              <AnimatedActionCard key={action.label} index={idx}>
+                <Link href={action.route} asChild>
+                  <TouchableOpacity style={styles.actionButton}>
+                    <LinearGradient
+                      colors={action.gradient}
+                      style={styles.actionGradient}
+                    >
+                      <View style={styles.actionContent}>
+                        <View style={styles.actionIcon}>
+                          <Ionicons
+                            name={action.icon}
+                            size={24}
+                            color="white"
+                          />
+                        </View>
+                        <Text style={styles.actionLabel}>{action.label}</Text>
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Link>
+              </AnimatedActionCard>
+            ))}
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 }
