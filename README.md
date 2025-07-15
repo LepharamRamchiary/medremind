@@ -1,50 +1,47 @@
-# Welcome to your Expo app 👋
+# MedRemind
+- MedRemind is a mobile application designed to help users stay on track with their medication routines. The app offers medication reminders, refill alerts, dose tracking, and more all in one easy-to-use and secure platform.
+- *Note: Some of the functionalities are under development.*
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## App Screenshots
 
-## Get started
+<div align="center" style="padding: 10px; background-color: #f9f9f9;">
 
-1. Install dependencies
+  <img src="https://github.com/user-attachments/assets/25da5ce7-c74c-4dc2-b52b-56c34d9a0589" width="120" style="margin-top: -20px; margin-bottom: 0px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/3afd2a97-b061-4ce1-a502-241ce9d023df" width="120" style="margin-top: 20px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/5fd256b3-49e6-48a7-9fed-9bb0aa5dbf93" width="120" style="margin-top: -20px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/d51d2045-ec32-41db-b052-46d91968540e" width="120" style="margin-top: 20px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/940b93d9-a5fe-4f95-bb24-e01bccce9282" width="120" style="margin-top: -20px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/b4d45b6f-b08c-4297-b8b2-6da913758001" width="120" style="margin-top: 20px; margin-right: 10px;" />
+  
+  <img src="https://github.com/user-attachments/assets/9702ac35-7704-4577-ba5f-6278ce944662" width="120" style="margin-top: -20px;" />
 
-   ```bash
-   npm install
-   ```
+</div>
 
-2. Start the app
+## Key Features
+- **Medication Scheduling** – Set up custom reminders for each medication.
+- **Refill Tracking** – Monitor your medicine stock and receive refill alerts.
+- **Cross-Platform** – Works on both **iOS** and **Android** devices.
+- **Biometric Authentication** – Secure access using **Face ID** or **Touch ID**.
+- **Progress Tracking** – View your daily intake and history logs.
+- **Calendar Integration** – Easily manage and view your scheduled doses.
+- **Local Data Storage** – Stores data securely using **AsyncStorage**.
 
-   ```bash
-   npx expo start
-   ```
+## Tech Stack
+- **React Native** – Cross-platform mobile app development.
+- **Expo** – Fast development workflow with native features.
+- **TypeScript** – Strongly typed and scalable codebase.
+- **React Navigation** – Easy and dynamic app navigation.
+- **Expo Notifications** – Push notification system for reminders.
+- **AsyncStorage** – Lightweight local storage solution.
+- **React Native Reanimated** – Smooth and performant animations.
 
-In the output, you'll find options to open the app in a
+##  In Progress
+- Some features are currently not fully functional. Future updates will include...
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
