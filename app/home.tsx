@@ -1,9 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
+  AppState,
   Dimensions,
   Modal,
   ScrollView,
@@ -13,6 +16,17 @@ import {
   View,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import {
+  registerForPushNotificationsAsync,
+  scheduleMedicationReminder,
+} from "../utils/notifications";
+import {
+  DoseHistory,
+  getMedications,
+  getTodaysDoses,
+  Medication,
+  recordDose,
+} from "../utils/storage";
 
 const { width } = Dimensions.get("window");
 
@@ -49,39 +63,6 @@ const QUICK_ACTIONS = [
     gradient: ["#FF5722", "#E64A19"] as [string, string],
   },
 ];
-
-function AnimatedActionCard({
-  children,
-  index,
-}: {
-  children: React.ReactNode;
-  index: number;
-}) {
-  const scale = useRef(new Animated.Value(0.8)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        delay: index * 200,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-        delay: index * 200,
-      }),
-    ]).start();
-  }, []);
-
-  return (
-    <Animated.View style={{ transform: [{ scale }], opacity }}>
-      {children}
-    </Animated.View>
-  );
-}
 
 interface CircularProgressProps {
   progress: number;
@@ -151,178 +132,284 @@ function CircularProgress({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [todaysMedications, setTodaysMedications] = useState<Medication[]>([]);
+  const [completedDoses, setCompletedDoses] = useState(0);
+  const [doseHistory, setDoseHistory] = useState<DoseHistory[]>([]);
+
+  const loadMedications = useCallback(async () => {
+    try {
+      const [allMedications, todaysDoses] = await Promise.all([
+        getMedications(),
+        getTodaysDoses(),
+      ]);
+
+      setDoseHistory(todaysDoses);
+      setMedications(allMedications);
+
+      // Filter medications for today
+      const today = new Date();
+      const todayMeds = allMedications.filter((med) => {
+        const startDate = new Date(med.startDate);
+        const durationDays = parseInt(med.duration.split(" ")[0]);
+
+        // For ongoing medications or if within duration
+        if (
+          durationDays === -1 ||
+          (today >= startDate &&
+            today <=
+              new Date(
+                startDate.getTime() + durationDays * 24 * 60 * 60 * 1000
+              ))
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      setTodaysMedications(todayMeds);
+
+      // Calculate completed doses
+      const completed = todaysDoses.filter((dose) => dose.taken).length;
+      setCompletedDoses(completed);
+    } catch (error) {
+      console.error("Error loading medications:", error);
+    }
+  }, []);
+
+  const setupNotifications = async () => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (!token) {
+        console.log("Failed to get push notification token");
+        return;
+      }
+
+      // Schedule reminders for all medications
+      const medications = await getMedications();
+      for (const medication of medications) {
+        if (medication.reminderEnabled) {
+          await scheduleMedicationReminder(medication);
+        }
+      }
+    } catch (error) {
+      console.error("Error setting up notifications:", error);
+    }
+  };
+
+  // Use useEffect for initial load
+  useEffect(() => {
+    loadMedications();
+    setupNotifications();
+
+    // Handle app state changes for notifications
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        loadMedications();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Use useFocusEffect for subsequent updates
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = () => {
+        // Cleanup if needed
+      };
+
+      loadMedications();
+      return () => unsubscribe();
+    }, [loadMedications])
+  );
+
+  const handleTakeDose = async (medication: Medication) => {
+    try {
+      await recordDose(medication.id, true, new Date().toISOString());
+      await loadMedications(); // Reload data after recording dose
+    } catch (error) {
+      console.error("Error recording dose:", error);
+      Alert.alert("Error", "Failed to record dose. Please try again.");
+    }
+  };
+
+  const isDoseTaken = (medicationId: string) => {
+    return doseHistory.some(
+      (dose) => dose.medicationId === medicationId && dose.taken
+    );
+  };
+
+  const progress =
+    todaysMedications.length > 0
+      ? completedDoses / (todaysMedications.length * 2)
+      : 0;
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient colors={["#1a8e2d", "#146922"]} style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <View style={styles.flex1}>
-              <Text style={styles.greeting}> Daily Progress</Text>
+              <Text style={styles.greeting}>Daily Progress</Text>
             </View>
-            <TouchableOpacity style={styles.notificationButton}>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => setShowNotifications(true)}
+            >
               <Ionicons name="notifications-outline" size={24} color="white" />
-              {
+              {todaysMedications.length > 0 && (
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>3</Text>
+                  <Text style={styles.notificationCount}>
+                    {todaysMedications.length}
+                  </Text>
                 </View>
-              }
+              )}
             </TouchableOpacity>
           </View>
-          {/* circuler progress */}
-          <CircularProgress progress={0.2} totalDoses={10} completedDoses={2} />
+          <CircularProgress
+            progress={progress}
+            totalDoses={todaysMedications.length * 2}
+            completedDoses={completedDoses}
+          />
         </View>
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.quickActionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          {/* <View style={styles.quickActionsGrid}>
-              {
-                QUICK_ACTIONS.map((action) => (
-                  <Link href={action.route} key={action.label} asChild>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <LinearGradient colors={action.gradient}style={styles.actionGradient}>
-                        <View style={styles.actionContent}>
-                          <View style={styles.actionIcon}>
-                            <Ionicons name={action.icon} size={24} color="white"/>
-                          </View>
-                          <Text style={styles.actionLabel}>{action.label}</Text>
-                        </View>
-                      </LinearGradient>
-                    </TouchableOpacity>
-
-                  </Link>
-                ))
-              }
-          </View> */}
           <View style={styles.quickActionsGrid}>
-            {QUICK_ACTIONS.map((action, idx) => (
-              <AnimatedActionCard key={action.label} index={idx}>
-                <Link href={action.route} asChild>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <LinearGradient
-                      colors={action.gradient}
-                      style={styles.actionGradient}
-                    >
-                      <View style={styles.actionContent}>
-                        <View style={styles.actionIcon}>
-                          <Ionicons
-                            name={action.icon}
-                            size={24}
-                            color="white"
-                          />
-                        </View>
-                        <Text style={styles.actionLabel}>{action.label}</Text>
+            {QUICK_ACTIONS.map((action) => (
+              <Link href={action.route} key={action.label} asChild>
+                <TouchableOpacity style={styles.actionButton}>
+                  <LinearGradient
+                    colors={action.gradient}
+                    style={styles.actionGradient}
+                  >
+                    <View style={styles.actionContent}>
+                      <View style={styles.actionIcon}>
+                        <Ionicons name={action.icon} size={28} color="white" />
                       </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </Link>
-              </AnimatedActionCard>
+                      <Text style={styles.actionLabel}>{action.label}</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Link>
             ))}
           </View>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Today's Schedule</Text>
-          <Link href="/calender" asChild>
-            <TouchableOpacity>
-              <Text style={styles.seeAllButton}>See All</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-        {true ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="medical-outline" size={24} color="#ccc" />
-            <Text style={styles.emptyStateText}>
-              No Medications Scheduled For Today
-            </Text>
-            <Link href="/medications/add" asChild>
-              <TouchableOpacity style={styles.addMedicationButton}>
-                <Text style={styles.addMedicationButtonText}>
-                  Add Medication
-                </Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Today's Schedule</Text>
+            <Link href="/calender" asChild>
+              <TouchableOpacity>
+                <Text style={styles.seeAllButton}>See All</Text>
               </TouchableOpacity>
             </Link>
           </View>
-        ) : (
-          [].map((medicatons) => {
-            return (
-              <View style={styles.doseCard}>
-                <View
-                  style={[
-                    styles.doseBadge,
-                    //   { backgroundColor: medicatons.color
-
-                    // }
-                  ]}
-                >
-                  <Ionicons name="medical" size={24} color="#ccc" />
-                </View>
-                <View style={styles.doseInfo}>
-                  <View>
-                    <Text style={styles.medicineName}>Name</Text>
-                    <Text style={styles.doseInfo}>Doses</Text>
-                  </View>
-                  <View style={styles.doseTime}>
-                    <Ionicons name="time-outline" size={16} color="#ccc" />
-                    <Text style={styles.timeText}>Time</Text>
-                  </View>
-                </View>
-                {true ? (
-                  <View style={styles.takeDoseButton}>
+          {todaysMedications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="medical-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyStateText}>
+                No medications scheduled for today
+              </Text>
+              <Link href="/medications/add" asChild>
+                <TouchableOpacity style={styles.addMedicationButton}>
+                  <Text style={styles.addMedicationButtonText}>
+                    Add Medication
+                  </Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+          ) : (
+            todaysMedications.map((medication) => {
+              const taken = isDoseTaken(medication.id);
+              return (
+                <View key={medication.id} style={styles.doseCard}>
+                  <View
+                    style={[
+                      styles.doseBadge,
+                      { backgroundColor: `${medication.color}15` },
+                    ]}
+                  >
                     <Ionicons
-                      name="checkmark-circle-outline"
+                      name="medical"
                       size={24}
-                      color="#4CAF50"
+                      color={medication.color}
                     />
-                    <Text style={styles.takeDoseText}>Taken</Text>
                   </View>
-                ) : (
-                  <TouchableOpacity style={styles.takeDoseButton}>
-                    <Text style={styles.takeDoseText}>Take</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })
-        )}
+                  <View style={styles.doseInfo}>
+                    <View>
+                      <Text style={styles.medicineName}>{medication.name}</Text>
+                      <Text style={styles.dosageInfo}>{medication.dosage}</Text>
+                    </View>
+                    <View style={styles.doseTime}>
+                      <Ionicons name="time-outline" size={16} color="#666" />
+                      <Text style={styles.timeText}>{medication.times[0]}</Text>
+                    </View>
+                  </View>
+                  {taken ? (
+                    <View style={[styles.takenBadge]}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color="#4CAF50"
+                      />
+                      <Text style={styles.takenText}>Taken</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.takeDoseButton,
+                        { backgroundColor: medication.color },
+                      ]}
+                      onPress={() => handleTakeDose(medication)}
+                    >
+                      <Text style={styles.takeDoseText}>Take</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
       </View>
 
-        <Modal
-        // visible={showNotifications}
-        visible={false}
+      <Modal
+        visible={showNotifications}
         animationType="slide"
         transparent={true}
-        // onRequestClose={() => setShowNotifications(false)}
+        onRequestClose={() => setShowNotifications(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notifications</Text>
               <TouchableOpacity
-                // onPress={() => setShowNotifications(false)}
+                onPress={() => setShowNotifications(false)}
                 style={styles.closeButton}
               >
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            {[].map((medication) => (
-              <View style={styles.notificationItem}>
+            {todaysMedications.map((medication) => (
+              <View key={medication.id} style={styles.notificationItem}>
                 <View style={styles.notificationIcon}>
-                  <Ionicons name="medical" size={24}  />
+                  <Ionicons name="medical" size={24} color={medication.color} />
                 </View>
                 <View style={styles.notificationContent}>
                   <Text style={styles.notificationTitle}>
-                    {/* {medication.name} */} Medication Name
+                    {medication.name}
                   </Text>
                   <Text style={styles.notificationMessage}>
-                    {/* {medication.dosage} */} Dosage Information
+                    {medication.dosage}
                   </Text>
                   <Text style={styles.notificationTime}>
-                    {/* {medication.times[0]}  */} Time of Dose
+                    {medication.times[0]}
                   </Text>
                 </View>
               </View>
@@ -330,7 +417,6 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }
@@ -406,6 +492,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 20,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -603,7 +690,6 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 16,
     marginTop: 10,
-    marginBottom: 20,
   },
   emptyStateText: {
     fontSize: 16,
